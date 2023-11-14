@@ -11,3 +11,10 @@ def lewat_tembok():
     move()
     turn_right()
     move()
+
+turn_right()
+    move()
+    turn_left()
+#me-repeat gerakan robot jika robot belum mencapai titik finish
+while (not at_goal()):
+    lewat_tembok()
