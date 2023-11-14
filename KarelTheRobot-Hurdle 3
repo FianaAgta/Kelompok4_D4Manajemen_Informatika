@@ -1,1 +1,20 @@
-
+#membuat fungsi agar robot bisa berbelok kekanan
+def turn_right():
+    turn_left()
+    turn_left()
+    turn_left()
+#fungsi untuk melewati tembok
+def lewat_tembok():
+    turn_left()
+    move()
+    turn_right()
+    move()
+    turn_right()
+    move()
+    turn_left()
+#memprogram robot agar tidak menabrak tembok
+while not at_goal():
+    if wall_in_front():
+        lewat_tembok()
+    elif front_is_clear():
+        move()
