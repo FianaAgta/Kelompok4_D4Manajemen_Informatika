@@ -1,1 +1,6 @@
-
+#membuat fungsi agar robot bisa berbelok ke kanan
+def turn_right():
+    count = 3
+    while count > 0:
+        turn_left()
+        count -= 1
