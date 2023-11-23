@@ -9,8 +9,8 @@ if front_is_clear():
     move()
 #membuat loop dan statement agar robot bisa ke finish tanpa menabrak tembok
 while not at_goal():
-    if right_is_clear():
-turn_right()
+ if right_is_clear():
+    turn_right()
         move()
     elif front_is_clear():
         move()
