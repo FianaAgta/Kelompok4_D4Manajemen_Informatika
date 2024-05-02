@@ -1,4 +1,4 @@
-Tugas Mata Kuliah Algoritma dan Pemrograman semester 2
+
 Tugas Mata Kuliah Struktur Data semester 2
 Prodi Manajemen Informatika Fakultas Vokasi Nama Anggota Kelompok 4 :
 
