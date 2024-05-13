@@ -59,7 +59,7 @@ class WeightedGraph:
         
         distances = {}
         for city in self.cityList:
-distances[city] = float('inf')
+        distances[city] = float('inf')
         
         distances[source] = 0
         print (distances)
