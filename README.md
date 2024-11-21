@@ -1,5 +1,5 @@
 
-Tugas Mata Kuliah Struktur Data semester 2
+Tugas Mata Kuliah Pemrograman Berbasis Objek (PBO) semester 3
 Prodi Manajemen Informatika Fakultas Vokasi Nama Anggota Kelompok 4 :
 
 1. Muhammad Rafif Ramadhan (23091397108)
