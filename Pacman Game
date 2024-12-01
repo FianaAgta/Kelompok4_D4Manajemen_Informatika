@@ -1,0 +1,260 @@
+import pygame
+import random
+from abc import ABC, abstractmethod
+
+# Inisialisasi pygame
+pygame.init()
+
+# Konstanta
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+CELL_SIZE = 40
+PACMAN_SPEED = 5
+GHOST_SPEED = 4
+
+# Warna
+BLACK = (0, 0, 0)
+YELLOW = (255, 255, 0)
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
+WHITE = (255, 255, 255)
+GREEN = (0, 255, 0)
+
+class GameObject(ABC):
+    def __init__(self, x, y, color):
+        self.x = x
+        self.y = y
+        self.color = color
+        self.rect = pygame.Rect(x, y, CELL_SIZE, CELL_SIZE)
+    
+    @abstractmethod
+    def update(self):
+        pass
+    
+    @abstractmethod
+    def draw(self, screen):
+        pass
+
+class Pacman(GameObject):
+    def __init__(self, x, y):
+        super().__init__(x, y, YELLOW)
+        self.direction = [0, 0]
+        self.score = 0
+        self.mouth_open = True
+        self.mouth_angle = 45
+        self.animation_counter = 0
+        self.initial_x = x
+        self.initial_y = y
+    
+    def reset(self):
+        self.x = self.initial_x
+        self.y = self.initial_y
+        self.direction = [0, 0]
+        self.rect.x = self.x
+        self.rect.y = self.y
+    
+    def update(self):
+        # Update position
+        self.x += self.direction[0] * PACMAN_SPEED
+        self.y += self.direction[1] * PACMAN_SPEED
+        
+        # Keep Pacman in bounds
+        self.x = max(0, min(self.x, SCREEN_WIDTH - CELL_SIZE))
+        self.y = max(0, min(self.y, SCREEN_HEIGHT - CELL_SIZE))
+        
+        # Update rect position
+        self.rect.x = self.x
+        self.rect.y = self.y
+        
+        # Animate mouth
+        self.animation_counter += 1
+        if self.animation_counter >= 10:
+            self.mouth_open = not self.mouth_open
+            self.animation_counter = 0
+    
+    def draw(self, screen):
+        if self.mouth_open:
+            pygame.draw.circle(screen, self.color, 
+                             (self.x + CELL_SIZE//2, self.y + CELL_SIZE//2), 
+                             CELL_SIZE//2)
+        else:
+            # Draw Pacman with mouth
+            pygame.draw.arc(screen, self.color,
+                          (self.x, self.y, CELL_SIZE, CELL_SIZE),
+                          0.2, 5.6, CELL_SIZE//2)
+
+class Ghost(GameObject):
+    def __init__(self, x, y, color):
+        super().__init__(x, y, color)
+        self.direction = [1, 0]
+        self.counter = 0
+        self.initial_x = x
+        self.initial_y = y
+    
+    def reset(self):
+        self.x = self.initial_x
+        self.y = self.initial_y
+        self.direction = [1, 0]
+        self.counter = 0
+        self.rect.x = self.x
+        self.rect.y = self.y
+    
+    def update(self):
+        # Change direction randomly
+        self.counter += 1
+        if self.counter >= 60:  # Change direction every 60 frames
+            self.direction = random.choice([
+                [1, 0], [-1, 0], [0, 1], [0, -1]
+            ])
+            self.counter = 0
+        
+        # Update position
+        self.x += self.direction[0] * GHOST_SPEED
+        self.y += self.direction[1] * GHOST_SPEED
+        
+        # Keep ghost in bounds
+        self.x = max(0, min(self.x, SCREEN_WIDTH - CELL_SIZE))
+        self.y = max(0, min(self.y, SCREEN_HEIGHT - CELL_SIZE))
+        
+        # Update rect position
+        self.rect.x = self.x
+        self.rect.y = self.y
+    
+    def draw(self, screen):
+        # Draw ghost body
+        pygame.draw.circle(screen, self.color, 
+                         (self.x + CELL_SIZE//2, self.y + CELL_SIZE//2), 
+                         CELL_SIZE//2)
+        # Draw ghost skirt
+        pygame.draw.rect(screen, self.color,
+                        (self.x, self.y + CELL_SIZE//2, 
+                         CELL_SIZE, CELL_SIZE//2))
+
+class Pellet(GameObject):
+    def __init__(self, x, y):
+        super().__init__(x, y, WHITE)
+        self.radius = 3
+        self.active = True
+    
+    def reset(self):
+        self.active = True
+    
+    def update(self):
+        pass
+    
+    def draw(self, screen):
+        if self.active:
+            pygame.draw.circle(screen, self.color,
+                             (self.x + CELL_SIZE//2, self.y + CELL_SIZE//2),
+                             self.radius)
+
+class Game:
+    def __init__(self):
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.display.set_caption("Pacman")
+        self.clock = pygame.time.Clock()
+        self.reset_game()
+        
+        # Font
+        self.font = pygame.font.Font(None, 36)
+        
+        # High Score
+        self.high_score = 0
+    
+    def reset_game(self):
+        self.running = True
+        self.game_over = False
+        self.replay_mode = False
+        self.replay_counter = 0
+        
+        # Create game objects
+        self.pacman = Pacman(SCREEN_WIDTH//2, SCREEN_HEIGHT//2)
+        self.ghosts = [
+            Ghost(100, 100, RED),
+            Ghost(SCREEN_WIDTH-100, 100, BLUE),
+            Ghost(100, SCREEN_HEIGHT-100, RED)
+        ]
+        self.pellets = self.create_pellets()
+    
+    def create_pellets(self):
+        pellets = []
+        for x in range(0, SCREEN_WIDTH, CELL_SIZE):
+            for y in range(0, SCREEN_HEIGHT, CELL_SIZE):
+                if random.random() < 0.3:  # 30% chance of pellet spawn
+                    pellets.append(Pellet(x, y))
+        return pellets
+    
+    def handle_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT:
+                    self.pacman.direction = [-1, 0]
+                elif event.key == pygame.K_RIGHT:
+                    self.pacman.direction = [1, 0]
+                elif event.key == pygame.K_UP:
+                    self.pacman.direction = [0, -1]
+                elif event.key == pygame.K_DOWN:
+                    self.pacman.direction = [0, 1]
+                elif event.key == pygame.K_r and self.game_over:
+                    # Replay game
+                    self.high_score = max(self.high_score, self.pacman.score)
+                    self.reset_game()
+                elif event.key == pygame.K_q:
+                    self.running = False
+    
+    def check_collisions(self):
+        # Check pellet collisions
+        for pellet in self.pellets[:]:
+            if pellet.active and self.pacman.rect.colliderect(pellet.rect):
+                pellet.active = False
+                self.pacman.score += 10
+        
+        # Check ghost collisions
+        for ghost in self.ghosts:
+            if self.pacman.rect.colliderect(ghost.rect):
+                self.game_over = True
+    
+    def update(self):
+        if not self.game_over:
+            self.pacman.update()
+            for ghost in self.ghosts:
+                ghost.update()
+            self.check_collisions()
+    
+    def draw(self):
+        self.screen.fill(BLACK)
+        
+        # Draw game objects
+        for pellet in self.pellets:
+            pellet.draw(self.screen)
+        self.pacman.draw(self.screen)
+        for ghost in self.ghosts:
+            ghost.draw(self.screen)
+        
+        # Draw scores
+        score_text = self.font.render(f'Score: {self.pacman.score}', True, WHITE)
+        high_score_text = self.font.render(f'High Score: {self.high_score}', True, GREEN)
+        self.screen.blit(score_text, (10, 10))
+        self.screen.blit(high_score_text, (10, 50))
+        
+        if self.game_over:
+            game_over_text = self.font.render('Game Over! Press R to Replay, Q to Quit', True, WHITE)
+            self.screen.blit(game_over_text, 
+                           (SCREEN_WIDTH//2 - 250, SCREEN_HEIGHT//2))
+        
+        pygame.display.flip()
+    
+    def run(self):
+        while self.running:
+            self.handle_events()
+            self.update()
+            self.draw()
+            self.clock.tick(60)
+        
+        pygame.quit()
+
+if __name__ == "__main__":
+    game = Game()
+    game.run()
