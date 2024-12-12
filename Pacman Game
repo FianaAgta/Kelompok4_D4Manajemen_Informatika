@@ -19,6 +19,7 @@ RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
+GRAY = (128, 128, 128)
 
 class GameObject(ABC):
     def __init__(self, x, y, color):
@@ -41,7 +42,6 @@ class Pacman(GameObject):
         self.direction = [0, 0]
         self.score = 0
         self.mouth_open = True
-        self.mouth_angle = 45
         self.animation_counter = 0
         self.initial_x = x
         self.initial_y = y
@@ -50,6 +50,7 @@ class Pacman(GameObject):
         self.x = self.initial_x
         self.y = self.initial_y
         self.direction = [0, 0]
+        self.score = 0
         self.rect.x = self.x
         self.rect.y = self.y
     
@@ -153,19 +154,29 @@ class Game:
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         pygame.display.set_caption("Pacman")
         self.clock = pygame.time.Clock()
-        self.reset_game()
         
-        # Font
-        self.font = pygame.font.Font(None, 36)
+        # Fonts
+        self.title_font = pygame.font.Font(None, 72)
+        self.menu_font = pygame.font.Font(None, 48)
+        self.small_font = pygame.font.Font(None, 36)
+        
+        # Game state
+        self.state = 'MENU'
+        self.won = False
         
         # High Score
         self.high_score = 0
+        
+        # Menu selection
+        self.selected_option = 0
+        
+        # Reset game objects
+        self.reset_game()
     
     def reset_game(self):
         self.running = True
         self.game_over = False
-        self.replay_mode = False
-        self.replay_counter = 0
+        self.won = False
         
         # Create game objects
         self.pacman = Pacman(SCREEN_WIDTH//2, SCREEN_HEIGHT//2)
@@ -184,7 +195,25 @@ class Game:
                     pellets.append(Pellet(x, y))
         return pellets
     
-    def handle_events(self):
+    def handle_menu_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    self.selected_option = max(0, self.selected_option - 1)
+                elif event.key == pygame.K_DOWN:
+                    self.selected_option = min(2, self.selected_option + 1)
+                elif event.key == pygame.K_RETURN:
+                    if self.selected_option == 0:
+                        self.state = 'GAME'
+                        self.reset_game()
+                    elif self.selected_option == 1:
+                        self.state = 'HIGH_SCORE'
+                    elif self.selected_option == 2:
+                        self.running = False
+    
+    def handle_game_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -198,11 +227,19 @@ class Game:
                 elif event.key == pygame.K_DOWN:
                     self.pacman.direction = [0, 1]
                 elif event.key == pygame.K_r and self.game_over:
-                    # Replay game
                     self.high_score = max(self.high_score, self.pacman.score)
                     self.reset_game()
-                elif event.key == pygame.K_q:
-                    self.running = False
+                elif event.key == pygame.K_ESCAPE:
+                    self.state = 'MENU'
+                    self.high_score = max(self.high_score, self.pacman.score)
+    
+    def handle_high_score_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.state = 'MENU'
     
     def check_collisions(self):
         # Check pellet collisions
@@ -211,44 +248,102 @@ class Game:
                 pellet.active = False
                 self.pacman.score += 10
         
+        # Check if all pellets are eaten (win condition)
+        if all(not pellet.active for pellet in self.pellets):
+            self.game_over = True
+            self.won = True  # Flag for winning state
+        
         # Check ghost collisions
         for ghost in self.ghosts:
             if self.pacman.rect.colliderect(ghost.rect):
                 self.game_over = True
+                self.won = False  # Flag for losing state
     
     def update(self):
-        if not self.game_over:
+        if self.state == 'GAME' and not self.game_over:
             self.pacman.update()
             for ghost in self.ghosts:
                 ghost.update()
             self.check_collisions()
     
-    def draw(self):
+    def draw_menu(self):
         self.screen.fill(BLACK)
         
-        # Draw game objects
-        for pellet in self.pellets:
-            pellet.draw(self.screen)
-        self.pacman.draw(self.screen)
-        for ghost in self.ghosts:
-            ghost.draw(self.screen)
+        # Game title
+        title = self.title_font.render('PACMAN', True, YELLOW)
+        title_rect = title.get_rect(center=(SCREEN_WIDTH//2, 100))
+        self.screen.blit(title, title_rect)
         
-        # Draw scores
-        score_text = self.font.render(f'Score: {self.pacman.score}', True, WHITE)
-        high_score_text = self.font.render(f'High Score: {self.high_score}', True, GREEN)
-        self.screen.blit(score_text, (10, 10))
-        self.screen.blit(high_score_text, (10, 50))
-        
-        if self.game_over:
-            game_over_text = self.font.render('Game Over! Press R to Replay, Q to Quit', True, WHITE)
-            self.screen.blit(game_over_text, 
-                           (SCREEN_WIDTH//2 - 250, SCREEN_HEIGHT//2))
+        # Menu options
+        menu_options = ['Start Game', 'High Scores', 'Quit']
+        for i, option in enumerate(menu_options):
+            color = WHITE if i == self.selected_option else GRAY
+            menu_text = self.menu_font.render(option, True, color)
+            menu_rect = menu_text.get_rect(center=(SCREEN_WIDTH//2, 300 + i*70))
+            self.screen.blit(menu_text, menu_rect)
         
         pygame.display.flip()
     
+    def draw_high_score(self):
+        self.screen.fill(BLACK)
+        
+        # High Score title
+        title = self.title_font.render('High Score', True, GREEN)
+        title_rect = title.get_rect(center=(SCREEN_WIDTH//2, 100))
+        self.screen.blit(title, title_rect)
+        
+        # High Score display
+        score_text = self.small_font.render(f'Your Best Score: {self.high_score}', True, WHITE)
+        score_rect = score_text.get_rect(center=(SCREEN_WIDTH//2, 300))
+        self.screen.blit(score_text, score_rect)
+        
+        # Instructions
+        instr_text = self.small_font.render('Press ESC to return to menu', True, GRAY)
+        instr_rect = instr_text.get_rect(center=(SCREEN_WIDTH//2, 500))
+        self.screen.blit(instr_text, instr_rect)
+        
+        pygame.display.flip()
+    
+    def draw(self):
+        if self.state == 'MENU':
+            self.draw_menu()
+        elif self.state == 'HIGH_SCORE':
+            self.draw_high_score()
+        elif self.state == 'GAME':
+            self.screen.fill(BLACK)
+            
+            # Draw game objects
+            for pellet in self.pellets:
+                pellet.draw(self.screen)
+            self.pacman.draw(self.screen)
+            for ghost in self.ghosts:
+                ghost.draw(self.screen)
+            
+            # Draw scores
+            score_text = self.small_font.render(f'Score: {self.pacman.score}', True, WHITE)
+            high_score_text = self.small_font.render(f'High Score: {self.high_score}', True, GREEN)
+            self.screen.blit(score_text, (10, 10))
+            self.screen.blit(high_score_text, (10, 50))
+            
+            if self.game_over:
+                if self.won:
+                    win_text = self.small_font.render('You Win! Press R to Replay, ESC to Menu', True, WHITE)
+                    self.screen.blit(win_text, (SCREEN_WIDTH//2 - 200, SCREEN_HEIGHT//2))
+                else:
+                    game_over_text = self.small_font.render('Game Over! Press R to Replay, ESC to Menu', True, WHITE)
+                    self.screen.blit(game_over_text, (SCREEN_WIDTH//2 - 250, SCREEN_HEIGHT//2))
+            
+            pygame.display.flip()
+    
     def run(self):
         while self.running:
-            self.handle_events()
+            if self.state == 'MENU':
+                self.handle_menu_events()
+            elif self.state == 'HIGH_SCORE':
+                self.handle_high_score_events()
+            elif self.state == 'GAME':
+                self.handle_game_events()
+            
             self.update()
             self.draw()
             self.clock.tick(60)
